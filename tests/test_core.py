@@ -85,7 +85,11 @@ class JSONCTests(unittest.TestCase):
         self.assertEqual(doc.text, text)
         doc.update(['provider', 'openai', 'models', 'gpt-6', 'reasoning'], True)
         doc.update(['provider', 'openai', 'models', 'gpt-6', 'interleaved'], {'field': 'reasoning_content'})
+        doc.update(['provider', 'openai', 'models', 'gpt-6', 'modalities'],
+                   {'input': ['text', 'image', 'pdf'], 'output': ['text']})
         doc.update(['provider', 'openai', 'options', 'headers'], {'X-Group': 'vip'})
+        self.assertEqual(doc.data['provider']['openai']['models']['gpt-6']['modalities'],
+                         {'input': ['text', 'image', 'pdf'], 'output': ['text']})
         self.assertEqual(doc.data['provider']['openai']['models']['gpt-6']['options'], {'store': False})
         self.assertEqual(list(doc.data['provider']['openai']['models']['gpt-6']['variants']), ['low', 'medium', 'high', 'xhigh', 'max'])
         self.assertEqual(doc.data['agent']['build']['options']['store'], False)
@@ -132,6 +136,12 @@ class MetadataTests(unittest.TestCase):
                 parse_field(field, text)
         self.assertEqual(parse_field('interleaved', '{"field":"reasoning_content"}'), {'field': 'reasoning_content'})
         self.assertEqual(parse_field('variants', '{"high":{"reasoningEffort":"high"}}')['high']['reasoningEffort'], 'high')
+        self.assertEqual(parse_field('modalities', '{"input":["text","image","pdf"],"output":["text"]}'),
+                         {'input': ['text', 'image', 'pdf'], 'output': ['text']})
+        for text in ('{}', '[]', '{"input":[]}', '{"input":["text","text"]}',
+                     '{"input":["text","nope"]}', '{"input":[{}]}', '{"input":"text"}', '{"other":["text"]}'):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                parse_field('modalities', text)
 
     def test_diagnostics(self):
         doc = Document('{"disabled_providers":["p"], "provider":{"p":{"models":{"m":{"reasoning":false,"interleaved":true,"limit":{"context":100,"output":200}}}}}}')
@@ -140,6 +150,14 @@ class MetadataTests(unittest.TestCase):
         self.assertIn('reasoning 为 false', report)
         self.assertIn('输出上限大于', report)
         self.assertIn('无法确认分组权限', report)
+
+    def test_attachment_diagnostic_requires_modalities(self):
+        doc = Document('{"provider":{"p":{"models":{"m":{"attachment":true}}}}}')
+        report = '\n'.join(row[2] for row in diagnose(doc.data))
+        self.assertIn('modalities.input', report)
+        doc = Document('{"provider":{"p":{"models":{"m":{"attachment":true,"modalities":{"input":["text","image"],"output":["text"]}}}}}}')
+        report = '\n'.join(row[2] for row in diagnose(doc.data))
+        self.assertNotIn('modalities.input', report)
 
     def test_provider_wizard_validation(self):
         provider = build_provider('relay_vip-1', 'VIP', 'https://relay.test/v1', 'sk-abc', ['m/one'], {'X-Group': 'vip'})

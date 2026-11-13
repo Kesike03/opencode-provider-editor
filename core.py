@@ -7,9 +7,10 @@ from i18n import tr
 from jsonc_editor import loads
 
 PROVIDER_FIELDS = ('name', 'baseURL', 'headers')
-MODEL_FIELDS = ('name', 'reasoning', 'tool_call', 'attachment', 'interleaved',
-                'limit.context', 'limit.output', 'variants')
+MODEL_FIELDS = ('name', 'reasoning', 'tool_call', 'attachment', 'modalities',
+                'interleaved', 'limit.context', 'limit.output', 'variants')
 BOOL_FIELDS = ('reasoning', 'tool_call', 'attachment')
+MODALITIES = ('text', 'image', 'audio', 'video', 'pdf')
 MISSING = object()
 PROVIDER_ID = re.compile(r'[a-z0-9_-]+\Z')
 
@@ -43,6 +44,14 @@ def validate_field(field, value):
         for variant in value.values():
             if 'disabled' in variant and type(variant['disabled']) is not bool:
                 raise ValueError(tr('core.variant_disabled_bool'))
+    if field == 'modalities':
+        if (not isinstance(value, dict) or not value or set(value) - {'input', 'output'}):
+            raise ValueError(tr('core.modalities_invalid'))
+        for items in value.values():
+            if (not isinstance(items, list) or not items
+                    or any(not isinstance(item, str) or item not in MODALITIES for item in items)
+                    or len(items) != len(set(items))):
+                raise ValueError(tr('core.modalities_invalid'))
     return value
 
 
@@ -226,6 +235,11 @@ def diagnose(data, auth=None):
                 add('info', loc, tr('diag.reasoning_declared'))
             if model.get('interleaved') and model.get('reasoning') is False:
                 add('warning', loc, tr('diag.interleaved_false'))
+            if model.get('attachment') is True:
+                modalities = model.get('modalities')
+                inputs = modalities.get('input') if isinstance(modalities, dict) else None
+                if not isinstance(inputs, list) or not any(item in MODALITIES and item != 'text' for item in inputs):
+                    add('warning', loc, tr('diag.attachment_needs_modalities'))
             limits = model.get('limit', {})
             for field in ('context', 'output'):
                 if field not in limits:

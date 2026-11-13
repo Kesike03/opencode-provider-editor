@@ -8,11 +8,15 @@ from dialogs import ProviderDialog, ModelDialog
 from i18n import tr
 
 
-def buttons(widget):
+def controls(widget, kind):
     for child in widget.winfo_children():
-        if child.winfo_class() == 'TButton':
+        if child.winfo_class() == kind:
             yield child
-        yield from buttons(child)
+        yield from controls(child, kind)
+
+
+def buttons(widget):
+    return controls(widget, 'TButton')
 
 
 def check_language(language, example):
@@ -72,6 +76,17 @@ def check_language(language, example):
         dialog.geometry('450x280+10+10')
         app.update()
         assert any(b.cget('text') == tr('button.save') and b.winfo_ismapped() and b.winfo_height() > 20 for b in buttons(dialog))
+        dialog.destroy()
+        app.open_field('modalities', ['provider', 'relay-vip', 'models', 'your-model-id', 'modalities'])
+        app.update()
+        dialog = next(w for w in app.winfo_children() if isinstance(w, FieldDialog))
+        dialog.geometry('620x470+10+10')
+        app.update()
+        labels = {c.cget('text') for c in controls(dialog, 'TCheckbutton') if c.winfo_ismapped()}
+        for key in ('modalities.text', 'modalities.image', 'modalities.audio',
+                    'modalities.video', 'modalities.pdf'):
+            assert tr(key) in labels, (language, key)
+        assert any(b.cget('text') == tr('button.save') and b.winfo_ismapped() for b in buttons(dialog))
         dialog.destroy()
         print('Layout smoke check passed:', language)
     finally:

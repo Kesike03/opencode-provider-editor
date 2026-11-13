@@ -6,8 +6,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from app import EXAMPLE_EN, EXAMPLE_ZH, example_text
-from core import (MODEL_FIELDS, PROVIDER_FIELDS, build_provider, diagnose, fetch_model_ids,
-                  key_source, mask, models_endpoint, parse_field)
+from core import (MODALITIES, MODEL_FIELDS, PROVIDER_FIELDS, build_provider, diagnose,
+                  fetch_model_ids, key_source, mask, models_endpoint, parse_field)
 from i18n import CATALOG, LANGUAGES, default_language, get_language, set_language, tr
 from jsonc_editor import Document, JSONCError, loads
 
@@ -38,6 +38,12 @@ class CatalogTests(unittest.TestCase):
         for field in PROVIDER_FIELDS + MODEL_FIELDS:
             self.assertIn('help.' + field, CATALOG['zh'])
             self.assertIn('help.' + field, CATALOG['en'])
+
+    def test_modality_labels_exist(self):
+        for key in ('modalities.input', 'modalities.output', 'modalities.required',
+                    *(f'modalities.{modality}' for modality in MODALITIES)):
+            self.assertIn(key, CATALOG['zh'])
+            self.assertIn(key, CATALOG['en'])
 
     def test_all_static_source_keys_exist(self):
         for filename in ('app.py', 'core.py', 'dialogs.py', 'jsonc_editor.py'):
@@ -105,6 +111,8 @@ class LocalizedMessageTests(unittest.TestCase):
             models_endpoint('{env:URL}')
         with self.assertRaisesRegex(ValueError, 'unexpanded key reference'):
             fetch_model_ids('https://relay.test/v1', '{env:KEY}')
+        with self.assertRaisesRegex(ValueError, 'modalities must be'):
+            parse_field('modalities', '{"input":["text","image"],"output":[]}')
 
     def test_jsonc_messages(self):
         with self.assertRaisesRegex(JSONCError, 'Duplicate key'):

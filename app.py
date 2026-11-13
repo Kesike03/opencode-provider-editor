@@ -6,8 +6,8 @@ from tkinter import font as tkfont
 from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 
-from core import (BOOL_FIELDS, MISSING, MODEL_FIELDS, PROVIDER_FIELDS,
-                  diagnose, get_field, key_source, parse_field)
+from core import (BOOL_FIELDS, MISSING, MODALITIES, MODEL_FIELDS, PROVIDER_FIELDS,
+                  diagnose, get_field, key_source, parse_field, validate_field)
 from dialogs import ModelDialog, ProviderDialog, ToolTip, fit_window
 from i18n import LANGUAGES, default_language, get_language, set_language, tr
 from jsonc_editor import Document, loads
@@ -31,6 +31,7 @@ EXAMPLE_ZH = '''{
           "reasoning": true,
           "tool_call": true,
           "attachment": false,
+          "modalities": {"input": ["text"], "output": ["text"]},
           "interleaved": {"field": "reasoning_content"},
           "limit": {"context": 128000, "output": 8192},
           "variants": {}
@@ -59,6 +60,7 @@ EXAMPLE_EN = '''{
           "reasoning": true,
           "tool_call": true,
           "attachment": false,
+          "modalities": {"input": ["text"], "output": ["text"]},
           "interleaved": {"field": "reasoning_content"},
           "limit": {"context": 128000, "output": 8192},
           "variants": {}
@@ -94,10 +96,14 @@ class FieldDialog(tk.Toplevel):
     def __init__(self, parent, field, value, on_save):
         super().__init__(parent)
         self.title(tr('field.title', field=field))
-        fit_window(self, 620, 360, 450, 280)
+        fit_window(self, 620, 470 if field == 'modalities' else 360, 450, 420 if field == 'modalities' else 280)
         self.transient(parent)
         self.on_save = on_save
         self.field = field
+        self.editor = None
+        self.choice = None
+        self.first_choice = None
+        self.modality_vars = {}
         frame = ttk.Frame(self, padding=18)
         frame.pack(fill='both', expand=True)
         family = tkfont.nametofont('TkDefaultFont').actual('family')
@@ -105,11 +111,15 @@ class FieldDialog(tk.Toplevel):
         help_label = ttk.Label(frame, text=tr('help.' + field))
         help_label.pack(anchor='w', pady=(8, 14))
         frame.bind('<Configure>', lambda event: help_label.configure(wraplength=max(260, event.width - 36)))
-        if field in BOOL_FIELDS:
+        if field == 'modalities':
+            self.body = ttk.Frame(frame)
+            self.body.pack(fill='x', pady=(0, 8))
+            self.build_modalities(self.body, value)
+        elif field in BOOL_FIELDS:
             self.checked = tk.BooleanVar(value=value is True)
             self.choice = ttk.Checkbutton(frame, text=tr('field.enabled'), variable=self.checked)
             self.choice.pack(anchor='w')
-            self.editor = None
+            self.body = self.choice
         else:
             self.editor = ScrolledText(frame, height=7, undo=True, font=('Consolas', 11))
             self.editor.pack(fill='both', expand=True)
@@ -120,21 +130,56 @@ class FieldDialog(tk.Toplevel):
             else:
                 text = json.dumps(value, ensure_ascii=False, indent=2)
             self.editor.insert('1.0', text)
+            self.body = self.editor
         actions = ttk.Frame(frame)
         actions.pack(fill='x', pady=(16, 0))
         ttk.Button(actions, text=tr('field.remove'), command=lambda: self.save(True)).pack(side='left')
         ttk.Button(actions, text=tr('button.save'), command=self.save).pack(side='right')
         ttk.Button(actions, text=tr('button.cancel'), command=self.destroy).pack(side='right', padx=8)
         actions.pack_forget()
-        actions.pack(side='bottom', fill='x', pady=(12, 0), before=self.editor or self.choice)
+        actions.pack(side='bottom', fill='x', pady=(12, 0), before=self.body)
         self.bind('<Escape>', lambda event: self.destroy())
         self.grab_set()
-        (self.editor or self.choice).focus_set()
+        (self.editor or self.choice or self.first_choice).focus_set()
+
+    def build_modalities(self, parent, value):
+        current = value if isinstance(value, dict) else {}
+        defaults = {'input': ['text'], 'output': ['text']}
+        for key in ('input', 'output'):
+            group = ttk.LabelFrame(parent, text=tr('modalities.' + key), padding=8)
+            group.pack(fill='x', pady=(0, 10))
+            row = ttk.Frame(group)
+            row.pack(fill='x')
+            selected = current.get(key, defaults[key])
+            if not isinstance(selected, list):
+                selected = defaults[key]
+            for modality in MODALITIES:
+                variable = tk.BooleanVar(value=modality in selected)
+                check = ttk.Checkbutton(row, text=tr('modalities.' + modality), variable=variable)
+                check.pack(side='left', padx=(0, 12))
+                self.modality_vars[(key, modality)] = variable
+                if self.first_choice is None:
+                    self.first_choice = check
+
+    def modality_value(self):
+        value = {}
+        for key in ('input', 'output'):
+            selected = [modality for modality in MODALITIES if self.modality_vars[(key, modality)].get()]
+            if not selected:
+                raise ValueError(tr('modalities.required'))
+            value[key] = selected
+        return validate_field('modalities', value)
 
     def save(self, delete=False):
         try:
-            text = self.editor.get('1.0', 'end-1c') if self.editor else None
-            value = None if delete else (self.checked.get() if self.field in BOOL_FIELDS else parse_field(self.field, text))
+            if delete:
+                value = None
+            elif self.field == 'modalities':
+                value = self.modality_value()
+            elif self.field in BOOL_FIELDS:
+                value = self.checked.get()
+            else:
+                value = parse_field(self.field, self.editor.get('1.0', 'end-1c'))
             self.on_save(value, delete)
         except (ValueError, TypeError) as exc:
             messagebox.showerror(tr('field.save_error'), str(exc), parent=self)

@@ -31,7 +31,7 @@ OPENCODE_EDITOR_LANG=en python3 app.py
 1. 在“导入”页粘贴完整的 `opencode.json` / `opencode.jsonc` 文本，点击“识别配置”。也可先填入示例。即使原文是 `{}`，也可在编辑页创建第一个分组。
 2. 在“快速编辑”页左侧选择 provider（一个 provider 对应一个中转站分组）。列表显示 ID、名称和模型数量；右侧“分组设置”显示完整 baseURL 与脱敏 key 来源。选择模型后右侧切换到“模型能力与限制”，两种详情可用页签切换。
 3. 点击“+ 添加分组”选择基于原生 provider 或添加自定义 provider。自定义模式填写 ID、名称及 URL；API key 可留空，通过可增删的请求头输入认证。模型 ID 行也可增删；可点“从 URL 拉取模型列表”填充 ID，再自行筛选。分组与模型列表都有删除按钮，删除前会确认。
-4. 选择分组字段，或用搜索框按模型 ID / 名称查找模型并选择右侧的能力字段。字段左侧的 `?` 悬浮显示当前语言的简介；双击字段或点击“编辑选中字段”按钮。布尔值使用勾选框；headers、interleaved、variants 支持 JSONC 输入。支持逐次撤销。
+4. 选择分组字段，或用搜索框按模型 ID / 名称查找模型并选择右侧的能力字段。字段左侧的 `?` 悬浮显示当前语言的简介；双击字段或点击“编辑选中字段”按钮。布尔值使用勾选框；modalities 使用输入/输出媒体类型勾选框；headers、interleaved、variants 支持 JSONC 输入。支持逐次撤销。
 5. 查看“体检”页，核对缺失的能力元数据、格式、上下文限制和启用/禁用列表。
 6. 点击“生成导出文本”，再“一键复制”，自行粘贴回配置文件。编辑后旧输出自动失效，避免复制过时内容。
 
@@ -43,10 +43,12 @@ OPENCODE_EDITOR_LANG=en python3 app.py
 | --- | --- | --- |
 | provider | name | `provider.<id>.name` |
 | provider | baseURL、headers | `provider.<id>.options.baseURL / headers` |
-| model | name、reasoning、tool_call、attachment、interleaved、variants | `provider.<id>.models.<model-id>.*` |
+| model | name、reasoning、tool_call、attachment、modalities、interleaved、variants | `provider.<id>.models.<model-id>.*` |
 | model | limit.context、limit.output | `provider.<id>.models.<model-id>.limit.*` |
 
-已有配置中的 ID 可以包含点号、斜线和中文，程序按真实键路径处理。新增 provider ID 限定为小写字母、下划线、数字及连字符；新增模型 ID 可以包含斜线，不能包含 `#`。其他配置项（npm、options、modalities、插件、权限等）保留原样。修改已有 ID 可在输入文本中完成后重新导入。
+`attachment` 只是粗粒度开关。要允许图片或 PDF，还必须在 `modalities.input` 中勾选对应类型；OpenCode 处理附件时会检查这些媒体类型。普通文本和代码文件走文本输入，不需要额外声明。
+
+已有配置中的 ID 可以包含点号、斜线和中文，程序按真实键路径处理。新增 provider ID 限定为小写字母、下划线、数字及连字符；新增模型 ID 可以包含斜线，不能包含 `#`。其他配置项（npm、options、插件、权限等）保留原样。修改已有 ID 可在输入文本中完成后重新导入。
 
 ### 创建分组与拉取模型
 
@@ -95,7 +97,7 @@ OPENCODE_EDITOR_LANG=en python3 app.py
 py -m unittest discover -s tests -v
 ```
 
-测试覆盖解析、注释保留、分组和模型增删、密钥脱敏、离线体检、模拟的模型列表响应，以及中英文目录键、占位符和英文错误消息。可用 `py tests/gui_smoke.py` 执行桌面交互及语言切换检查，`py tests/layout_smoke.py` 检查中英文界面在 1180×770、900×650、780×550 窗口和窄弹窗下的控件可见性（都需要图形桌面）。测试中的网络请求均使用模拟响应，不访问真实中转站。
+测试覆盖解析、注释保留、分组和模型增删、modalities 校验与编辑、密钥脱敏、离线体检、模拟的模型列表响应，以及中英文目录键、占位符和英文错误消息。可用 `py tests/gui_smoke.py` 执行桌面交互及语言切换检查，`py tests/layout_smoke.py` 检查中英文界面在 1180×770、900×650、780×550 窗口和窄弹窗下的控件可见性（都需要图形桌面）。测试中的网络请求均使用模拟响应，不访问真实中转站。
 
 ## 许可证
 

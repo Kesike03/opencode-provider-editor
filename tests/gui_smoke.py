@@ -17,7 +17,7 @@ try:
     app.update()
     assert len(app.providers.get_children()) == 1
     assert len(app.models.get_children()) == 1
-    assert len(app.model_fields.get_children()) == 8
+    assert len(app.model_fields.get_children()) == 9
     assert app.model_fields.item('reasoning', 'values')[0] == '?'
     app.tips.show('思考能力', 40, 40)
     assert app.tips.popup is not None
@@ -34,6 +34,16 @@ try:
     dialog.checked.set(False)
     dialog.save()
     assert app.doc.data['provider']['relay-vip']['models']['your-model-id']['reasoning'] is False
+    app.open_field('modalities', ['provider', 'relay-vip', 'models', 'your-model-id', 'modalities'])
+    app.update()
+    dialog = next(w for w in app.winfo_children() if isinstance(w, FieldDialog))
+    assert dialog.modality_vars[('input', 'text')].get()
+    assert dialog.modality_vars[('output', 'text')].get()
+    dialog.modality_vars[('input', 'image')].set(True)
+    dialog.modality_vars[('input', 'pdf')].set(True)
+    dialog.save()
+    assert app.doc.data['provider']['relay-vip']['models']['your-model-id']['modalities'] == {
+        'input': ['text', 'image', 'pdf'], 'output': ['text']}
     app.export()
     assert app.output.get('1.0', 'end-1c') == app.doc.text
     app.copy_output()
@@ -56,7 +66,8 @@ try:
     assert get_language() == 'zh'
     assert app.input.get('1.0', 'end-1c') == EXAMPLE_ZH
     assert '权限与能力' in app.report.get('1.0', 'end-1c')
-    app.undo()
+    while app.history:
+        app.undo()
     assert app.doc.text == EXAMPLE_ZH
     assert not app.exported
     app.add_provider()
@@ -88,6 +99,6 @@ try:
     with patch('app.messagebox.askyesno', return_value=True):
         app.delete_provider()
     assert 'relay_two' not in app.doc.data['provider']
-    print('GUI smoke check passed: import, tooltip, search, edit, export, copy, undo, add/delete provider and model')
+    print('GUI smoke check passed: import, tooltip, search, edit, modalities, export, copy, undo, add/delete provider and model')
 finally:
     app.destroy()

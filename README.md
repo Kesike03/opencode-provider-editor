@@ -31,7 +31,7 @@ OPENCODE_EDITOR_LANG=en python3 app.py
 1. On the Import tab, paste the complete `opencode.json` / `opencode.jsonc` text and click “Read configuration”. You can also insert an example first. Even if the original text is `{}`, you can create the first group on the Edit tab.
 2. On the Quick Edit tab, select a provider on the left (one provider represents one relay group). The list shows ID, name, and model count; “Group settings” on the right shows the full baseURL and masked key source. Selecting a model switches the right side to “Model capabilities & limits”; the two detail views are tabs.
 3. Click “+ Add group” and choose either a built-in provider or a custom provider. In custom mode, enter the ID, name, and URL; the API key may be empty, and authentication can use addable/removable headers. Model ID rows are also addable/removable; “Fetch model list from URL” fills IDs for you to review. Both groups and models have Delete buttons with confirmation.
-4. Select a group field, or search models by ID / name and select a capability field on the right. The `?` to the left of each field shows a localized description; double-click the field or click “Edit selected field”. Booleans use a checkbox; headers, interleaved, and variants accept JSONC input. Edits can be undone one at a time.
+4. Select a group field, or search models by ID / name and select a capability field on the right. The `?` to the left of each field shows a localized description; double-click the field or click “Edit selected field”. Booleans use a checkbox; modalities uses input/output media checkboxes; headers, interleaved, and variants accept JSONC input. Edits can be undone one at a time.
 5. Review the Check tab for missing capability metadata, formatting, context limits, and enabled/disabled lists.
 6. Click “Generate output”, then “Copy all”, and paste the result back into your configuration file. Old output is invalidated after an edit so stale text cannot be copied accidentally.
 
@@ -43,10 +43,12 @@ A field being undeclared and a field being `false` are different states. “Remo
 | --- | --- | --- |
 | provider | name | `provider.<id>.name` |
 | provider | baseURL, headers | `provider.<id>.options.baseURL / headers` |
-| model | name, reasoning, tool_call, attachment, interleaved, variants | `provider.<id>.models.<model-id>.*` |
+| model | name, reasoning, tool_call, attachment, modalities, interleaved, variants | `provider.<id>.models.<model-id>.*` |
 | model | limit.context, limit.output | `provider.<id>.models.<model-id>.limit.*` |
 
-Existing IDs may contain dots, slashes, or Chinese characters; the program uses the real key path. New provider IDs are limited to lowercase letters, underscores, digits, and hyphens; new model IDs may contain slashes but not `#`. Other configuration entries (npm, options, modalities, plugins, permissions, etc.) are preserved. To change an existing ID, edit the input text and import again.
+`attachment` is only a coarse flag. To allow images or PDFs, also enable the matching types under `modalities.input`; OpenCode checks those types when handling attachments. Text and code files use normal text input and need no extra media type.
+
+Existing IDs may contain dots, slashes, or Chinese characters; the program uses the real key path. New provider IDs are limited to lowercase letters, underscores, digits, and hyphens; new model IDs may contain slashes but not `#`. Other configuration entries (npm, options, plugins, permissions, etc.) are preserved. To change an existing ID, edit the input text and import again.
 
 ### Creating groups and fetching models
 
@@ -95,7 +97,7 @@ Objects (headers, variants, etc.) are recursively merged by key to preserve inte
 py -m unittest discover -s tests -v
 ```
 
-Tests cover parsing, comment preservation, group/model add/delete, key masking, offline checks, simulated model-list responses, and Chinese/English catalog keys, placeholders, and English error messages. Use `py tests/gui_smoke.py` for desktop interaction and language-switch checks, and `py tests/layout_smoke.py` to verify Chinese and English controls at 1180×770, 900×650, and 780×550 plus narrow dialogs (both need a graphical desktop). All network requests in tests use simulated responses and never contact a real relay.
+Tests cover parsing, comment preservation, group/model add/delete, modalities validation and editing, key masking, offline checks, simulated model-list responses, and Chinese/English catalog keys, placeholders, and English error messages. Use `py tests/gui_smoke.py` for desktop interaction and language-switch checks, and `py tests/layout_smoke.py` to verify Chinese and English controls at 1180×770, 900×650, and 780×550 plus narrow dialogs (both need a graphical desktop). All network requests in tests use simulated responses and never contact a real relay.
 
 ## License
 
